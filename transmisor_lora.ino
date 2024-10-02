@@ -27,17 +27,22 @@
 // Sensor JSN-SR04T
 #define TRIG_PIN 14
 #define ECHO_PIN 13
-#define ALTURA_MAXIMA_TANQUE 400
+// #define ALTURA_MAXIMA_TANQUE 400
+int emptyTankDistance = 400 ;  //Distance when tank is empty
+int fullTankDistance =  30 ;  //Distance when tank is full
 
-// int  Contador = 0;//Haremos un contador de paquetes enviados
-long porcentaje = 0;
-long distancia_calculada = 0;
+float duration;
+float distance;
+float averageDistance;
+float sum = 0;
+int   percentage;
+int numReadings = 50;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 void setup() {
   //initialize Serial Monitor
-  Serial.begin(115200);//inicia monitor serial
+  Serial.begin(115200);  //inicia monitor serial
   init_screen();
   init_lora();
 
@@ -45,69 +50,57 @@ void setup() {
   pinMode(ECHO_PIN, INPUT);
 }
 
-void loop() {
-  long duracion, distancia;
-  
-  // Enviar pulso de trigger
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
-  
-  // Leer el tiempo del pulso de echo
-  duracion = pulseIn(ECHO_PIN, HIGH, 35000);
-  
-  // Calcular la distancia en cm
-  distancia = duracion * 0.0343 / 2;
-  // Serial.println();
+void measure_distance() {
+  sum = 0;
+  averageDistance = 0;
+  for (int i = 0; i < numReadings; i++) {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(20);
+    digitalWrite(TRIG_PIN, LOW);
 
-  // distancia = pulseIn(ECHO_PIN, HIGH, 35000);
-  // distancia = duracion / 58;
-
-  Serial.println(String(distancia) + " mesuared");
-  // Serial.println("********************");
-  
-  // if (distancia > 30) {
-  // Limitar la distancia al tamaño del tanque
-  if (distancia > ALTURA_MAXIMA_TANQUE) {
-    distancia_calculada = ALTURA_MAXIMA_TANQUE;
-  } else {
-    distancia_calculada = distancia;
+    duration = pulseIn(ECHO_PIN, HIGH, 23000);
+    distance = ((duration / 2) * 0.343) / 10;
+    Serial.println(distance);
+    sum += distance;
+    delay(50);
   }
-  // Calcular el porcentaje de llenado utilizando la función map()
-  porcentaje = map(distancia_calculada, ALTURA_MAXIMA_TANQUE, 25, 0, 100);
+
+  averageDistance = sum / numReadings;
+  percentage = map((int)averageDistance, emptyTankDistance, fullTankDistance, 0, 100);
+
+  Serial.print("Distance: ");
+  Serial.print(averageDistance);
+  Serial.print(" cm");
+  Serial.print("  >>  Porcentaje: ");
+  Serial.print(percentage);
+  Serial.println(" %");
+}
+
+void loop() {
+
+  measure_distance();
+  // Limitar la distancia al tamaño del tanque
+  // if (distancia > ALTURA_MAXIMA_TANQUE) {
+  //   distancia_calculada = ALTURA_MAXIMA_TANQUE;
+  // } else {
+  //   distancia_calculada = distancia;
   // }
 
-  if (porcentaje < 0) {
-    porcentaje = 0;
-  }
-  if (porcentaje > 100) {
-    porcentaje = 100;
-  }
-  
-  // Mostrar los resultados
-  // Serial.print("Distancia medida: ");
-  // Serial.print(distancia_calculada);
-  // Serial.println(" cm");
-  
-  // Serial.print("Porcentaje de llenado: ");
-  // Serial.print(porcentaje);
-  // Serial.println(" %");
-   
-  // Serial.print("Enviando paquete: ");//Muestra mensaje
-  // Serial.println( Contador);
+  // if (porcentaje < 0) {
+  //   porcentaje = 0;
+  // }
+  // if (porcentaje > 100) {
+  //   porcentaje = 100;
+  // }
+
   // Concatenar y enviar
   // send_data_lora(String(distancia_calculada), String(porcentaje));
+
   // Mostrar datos en pantalla
   // show_info_screen(String(distancia_calculada) + " cm", String(porcentaje) + "%");
-
-  // Contador++;
-  // delay(2000);
-  // delay(100);
-  // show_info_screen2(String(distancia_calculada) + " cm", String(porcentaje) + "%");
-  delay(50);
-  // delay(1000);
+  show_info_screen2(String((int)averageDistance) + " cm", String(percentage) + "%");
 }
 
 void init_screen() {
@@ -166,7 +159,7 @@ void show_info_screen2(String distancia, String porcentaje) {
   display.clearDisplay();
   //Posicionamos en siguiente renglon
   display.setTextSize(2);
-  display.setCursor(40, 10);
+  display.setCursor(30, 10);
   display.print(distancia);
   display.setTextSize(2);
   display.setCursor(20, 40);
@@ -180,20 +173,20 @@ void show_info_screen(String distancia, String porcentaje) {
   //Limpia pantalla
   display.clearDisplay();
   //Posicionamos en siguiente renglon
-  display.setCursor(0,0);
+  display.setCursor(0, 0);
   //Tamaño de fuente a 1 punto
   display.setTextSize(1);
   display.print("TRANSMISOR LoRa");
-  display.setCursor(0,15);
+  display.setCursor(0, 15);
   display.setTextSize(1.5);
   display.print("Paquete enviado:");
-  display.setCursor(0,30);
+  display.setCursor(0, 30);
   display.print(" Distancia");
-  display.setCursor(80,30);
+  display.setCursor(80, 30);
   display.print(distancia);
-  display.setCursor(0,45);
+  display.setCursor(0, 45);
   display.print(" Porcentaje");
-  display.setCursor(80,45);
+  display.setCursor(80, 45);
   display.print(porcentaje);
   display.display();
 }
